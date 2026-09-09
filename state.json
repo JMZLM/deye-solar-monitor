@@ -1,6 +1,6 @@
 {
   "low_30_sent": false,
-  "high_80_sent": true,
+  "high_80_sent": false,
   "high_90_sent": false,
   "high_100_sent": false,
   "full_100_sent": false,
