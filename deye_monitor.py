@@ -17,6 +17,8 @@ STATION_ID = 62615671
 
 LOW_THRESHOLD = 31
 HIGH_THRESHOLDS = [79, 89, 99]
+FULL_THRESHOLD = 100
+AC_WARNING_THRESHOLD = 95
 
 STATE_FILE = "state.json"
 
@@ -41,11 +43,19 @@ def load_state():
             "low_30_sent": False,
             "high_80_sent": False,
             "high_90_sent": False,
-            "high_100_sent": False
+            "high_100_sent": False,
+            "reached_100": False,
+            "below_95_sent": False
         }
 
     with open(STATE_FILE, "r") as f:
-        return json.load(f)
+        state = json.load(f)
+        
+    state.setdefault("full_100_sent", False)
+    state.setdefault("reached_100", False)
+    state.setdefault("below_95_sent", False)
+
+    return state
 
 
 def save_state(state):
@@ -169,7 +179,7 @@ def send_notification(title, message, priority="default", tags="battery"):
 def check_battery(soc, state):
 
     # --------------------------------
-    # LOW BATTERY — 30%
+    # LOW BATTERY
     # --------------------------------
 
     if soc <= LOW_THRESHOLD:
@@ -185,66 +195,75 @@ def check_battery(soc, state):
 
             state["low_30_sent"] = True
 
-    # Reset the 30% alert once battery
-    # goes back above 30%
     elif soc > LOW_THRESHOLD:
 
         state["low_30_sent"] = False
 
 
     # --------------------------------
-    # HIGH BATTERY — 80%
+    # HIGH BATTERY THRESHOLDS
+    # 79%, 89%, 99%
     # --------------------------------
 
-    if soc >= 80:
+    threshold_state = {
+        HIGH_THRESHOLDS[0]: "high_80_sent",
+        HIGH_THRESHOLDS[1]: "high_90_sent",
+        HIGH_THRESHOLDS[2]: "high_100_sent"
+    }
 
-        if not state["high_80_sent"]:
+    for threshold, state_key in threshold_state.items():
 
-            send_notification(
-                "Deye Battery",
-                f"Battery reached {soc:.0f}% — passed 80%",
-                "default",
-                "battery,arrow_up"
-            )
+        if soc >= threshold:
 
-            state["high_80_sent"] = True
+            if not state[state_key]:
 
-    # Reset 80% alert when battery
-    # falls below 80%
-    if soc < 80:
-        state["high_80_sent"] = False
+                if threshold == HIGH_THRESHOLDS[0]:
 
+                    message = (
+                        f"Battery reached {soc:.0f}% — passed 80%"
+                    )
 
-    # --------------------------------
-    # HIGH BATTERY — 90%
-    # --------------------------------
+                elif threshold == HIGH_THRESHOLDS[1]:
 
-    if soc >= 90:
+                    message = (
+                        f"Battery reached {soc:.0f}% — passed 90%"
+                    )
 
-        if not state["high_90_sent"]:
+                else:
 
-            send_notification(
-                "Deye Battery",
-                f"Battery reached {soc:.0f}% — passed 90%",
-                "default",
-                "battery,arrow_up"
-            )
+                    message = (
+                        f"Battery reached {soc:.0f}% — nearly full"
+                    )
 
-            state["high_90_sent"] = True
+                send_notification(
+                    "Deye Battery",
+                    message,
+                    "default",
+                    "battery,arrow_up"
+                )
 
-    # Reset 90% alert when battery
-    # falls below 90%
-    if soc < 90:
-        state["high_90_sent"] = False
+                state[state_key] = True
+
+        else:
+
+            state[state_key] = False
 
 
     # --------------------------------
     # FULL BATTERY — 100%
     # --------------------------------
 
-    if soc >= 100:
+    if soc >= FULL_THRESHOLD:
 
-        if not state["high_100_sent"]:
+        # Remember that the battery has actually
+        # reached full charge
+        state["reached_100"] = True
+
+        # A new full-charge cycle allows the
+        # below-95% warning again
+        state["below_95_sent"] = False
+
+        if not state.get("full_100_sent", False):
 
             send_notification(
                 "Deye Battery",
@@ -253,12 +272,31 @@ def check_battery(soc, state):
                 "battery,white_check_mark"
             )
 
-            state["high_100_sent"] = True
+            state["full_100_sent"] = True
 
-    # Reset 100% alert when battery
-    # falls below 100%
-    if soc < 100:
-        state["high_100_sent"] = False
+    else:
+
+        state["full_100_sent"] = False
+
+
+    # --------------------------------
+    # AFTER 100%:
+    # BATTERY BELOW 95%
+    # --------------------------------
+
+    if state["reached_100"] and soc < AC_WARNING_THRESHOLD:
+
+        if not state["below_95_sent"]:
+
+            send_notification(
+                "Deye Battery",
+                f"Battery dropped below {AC_WARNING_THRESHOLD}% — "
+                f"now at {soc:.0f}%. Consider turning off AC.",
+                "high",
+                "warning,battery"
+            )
+
+            state["below_95_sent"] = True
 
 
 # ==============================
