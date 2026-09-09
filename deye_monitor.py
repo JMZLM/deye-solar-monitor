@@ -15,7 +15,7 @@ STATION_ID = 62615671
 # Battery Alert Settings
 # ==============================
 
-LOW_THRESHOLD = 30
+LOW_THRESHOLD = 70
 HIGH_THRESHOLDS = [80, 90, 100]
 
 STATE_FILE = "state.json"
@@ -178,7 +178,7 @@ def check_battery(soc, state):
 
             send_notification(
                 "🔻 Deye Battery",
-                f"Battery dropped to {soc:.0f}%",
+                f"TEST - Battery dropped to {soc:.0f}%",
                 "high",
                 "warning,battery"
             )
