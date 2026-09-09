@@ -3,28 +3,90 @@ import json
 import hashlib
 import requests
 
-# ==============================
-# Deye Configuration
-# ==============================
+# ============================================================
+# 🔧 USER SETTINGS — CHANGE VALUES HERE ONLY
+# ============================================================
 
-DEYE_BASE_URL = "https://eu1-developer.deyecloud.com/v1.0"
-
+# Deye station
 STATION_ID = 62615671
 
-# ==============================
-# Battery Alert Settings
-# ==============================
+# ------------------------------------------------------------
+# 🔋 CHARGING ALERTS
+# ------------------------------------------------------------
+# Alert when battery reaches/passes these levels while charging.
+#
+# Example:
+# 80: "Battery passed 80%"
+#
+# To add another alert:
+# 70: "Battery passed 70%"
+#
+CHARGING_ALERTS = {
+    80: "Battery passed 80%",
+    90: "Battery passed 90%",
+    99: "Battery nearly full"
+}
 
-LOW_THRESHOLD = 32
-HIGH_THRESHOLDS = [78, 88, 98]
-FULL_THRESHOLD = 100
-AC_WARNING_THRESHOLD = 97
+# ------------------------------------------------------------
+# 🔻 DISCHARGING ALERTS
+# ------------------------------------------------------------
+# Alert when battery drops BELOW these levels.
+#
+# Example:
+# 60: "Battery dropped below 60%"
+#
+DISCHARGING_ALERTS = {
+    80: "Battery dropped below 80%",
+    60: "Battery dropped below 60%",
+    40: "Battery dropped below 40%",
+    31: "CRITICAL: Battery is very low"
+}
+
+# ------------------------------------------------------------
+# 🔋 FULL BATTERY
+# ------------------------------------------------------------
+
+FULL_BATTERY = 100
+
+# ------------------------------------------------------------
+# 🔌 AC WARNING
+# ------------------------------------------------------------
+
+# Enable/disable the special AC warning
+AC_WARNING_ENABLED = True
+
+# After the battery reaches 100%, send an alert
+# when it later drops below this percentage.
+AC_WARNING_BELOW = 95
+
+AC_WARNING_MESSAGE = (
+    "Battery dropped below 95% — "
+    "consider turning off AC."
+)
+
+# ------------------------------------------------------------
+# ⚠️ NOTIFICATION PRIORITY
+# ------------------------------------------------------------
+
+# Options:
+# "min"
+# "low"
+# "default"
+# "high"
+# "max"
+
+NORMAL_PRIORITY = "default"
+WARNING_PRIORITY = "high"
+
+# ============================================================
+# ⚙️ SYSTEM SETTINGS — DON'T CHANGE THESE
+# ============================================================
+
+DEYE_BASE_URL = (
+    "https://eu1-developer.deyecloud.com/v1.0"
+)
 
 STATE_FILE = "state.json"
-
-# ==============================
-# Get Secrets from GitHub
-# ==============================
 
 DEYE_APP_ID = os.environ["DEYE_APP_ID"]
 DEYE_APP_SECRET = os.environ["DEYE_APP_SECRET"]
@@ -33,27 +95,58 @@ DEYE_PASSWORD = os.environ["DEYE_PASSWORD"]
 NTFY_TOPIC = os.environ["NTFY_TOPIC"]
 
 
-# ==============================
-# State Handling
-# ==============================
+# ============================================================
+# STATE MANAGEMENT
+# ============================================================
+
+def create_default_state():
+    state = {
+        "charging": {},
+        "discharging": {},
+        "full_battery_sent": False,
+        "reached_100": False,
+        "ac_warning_sent": False
+    }
+
+    for threshold in CHARGING_ALERTS:
+        state["charging"][str(threshold)] = False
+
+    for threshold in DISCHARGING_ALERTS:
+        state["discharging"][str(threshold)] = False
+
+    return state
+
 
 def load_state():
     if not os.path.exists(STATE_FILE):
-        return {
-            "low_30_sent": False,
-            "high_80_sent": False,
-            "high_90_sent": False,
-            "high_100_sent": False,
-            "reached_100": False,
-            "below_95_sent": False
-        }
+        return create_default_state()
 
-    with open(STATE_FILE, "r") as f:
-        state = json.load(f)
-        
-    state.setdefault("full_100_sent", False)
+    try:
+        with open(STATE_FILE, "r") as f:
+            state = json.load(f)
+    except Exception:
+        print("Could not read state.json. Creating new state.")
+        return create_default_state()
+
+    # Make sure required sections exist
+    state.setdefault("charging", {})
+    state.setdefault("discharging", {})
+    state.setdefault("full_battery_sent", False)
     state.setdefault("reached_100", False)
-    state.setdefault("below_95_sent", False)
+    state.setdefault("ac_warning_sent", False)
+
+    # Add newly configured thresholds automatically
+    for threshold in CHARGING_ALERTS:
+        state["charging"].setdefault(
+            str(threshold),
+            False
+        )
+
+    for threshold in DISCHARGING_ALERTS:
+        state["discharging"].setdefault(
+            str(threshold),
+            False
+        )
 
     return state
 
@@ -63,9 +156,9 @@ def save_state(state):
         json.dump(state, f, indent=2)
 
 
-# ==============================
-# Deye Authentication
-# ==============================
+# ============================================================
+# DEYE API
+# ============================================================
 
 def get_access_token():
 
@@ -93,14 +186,12 @@ def get_access_token():
     data = response.json()
 
     if not data.get("success"):
-        raise Exception(f"Deye authentication failed: {data}")
+        raise Exception(
+            f"Deye authentication failed: {data}"
+        )
 
     return data["accessToken"]
 
-
-# ==============================
-# Get Battery Information
-# ==============================
 
 def get_battery_soc(access_token):
 
@@ -125,20 +216,24 @@ def get_battery_soc(access_token):
     response.raise_for_status()
 
     data = response.json()
-    
+
     if not data.get("success"):
-        raise Exception(f"Deye station request failed: {data}")
-    
+        raise Exception(
+            f"Deye station request failed: {data}"
+        )
+
     print("Deye station response received.")
-    
+
     if "data" in data:
         latest = data["data"]
     else:
         latest = data
-    
+
     if "batterySOC" not in latest:
-        raise Exception(f"Battery SOC not found in Deye response: {data}")
-    
+        raise Exception(
+            f"Battery SOC not found in Deye response: {data}"
+        )
+
     soc = float(latest["batterySOC"])
 
     print(f"Battery SOC: {soc}%")
@@ -146,16 +241,20 @@ def get_battery_soc(access_token):
     return soc
 
 
-# ==============================
-# Send iPhone Notification
-# ==============================
+# ============================================================
+# NTFY
+# ============================================================
 
-def send_notification(title, message, priority="default", tags="battery"):
+def send_notification(
+    message,
+    priority=NORMAL_PRIORITY,
+    tags="battery"
+):
 
     url = f"https://ntfy.sh/{NTFY_TOPIC}"
 
     headers = {
-        "Title": title,
+        "Title": "Deye Battery",
         "Priority": priority,
         "Tags": tags
     }
@@ -172,152 +271,194 @@ def send_notification(title, message, priority="default", tags="battery"):
     print(f"Notification sent: {message}")
 
 
-# ==============================
-# Battery Alert Logic
-# ==============================
+# ============================================================
+# CHARGING ALERTS
+# ============================================================
 
-def check_battery(soc, state):
+def check_charging_alerts(soc, state):
 
-    # --------------------------------
-    # LOW BATTERY
-    # --------------------------------
+    for threshold, message in sorted(
+        CHARGING_ALERTS.items()
+    ):
 
-    if soc <= LOW_THRESHOLD:
-
-        if not state["low_30_sent"]:
-
-            send_notification(
-                "Deye Battery",
-                f"Battery dropped to {soc:.0f}%",
-                "high",
-                "warning,battery"
-            )
-
-            state["low_30_sent"] = True
-
-    elif soc > LOW_THRESHOLD:
-
-        state["low_30_sent"] = False
-
-
-    # --------------------------------
-    # HIGH BATTERY THRESHOLDS
-    # 79%, 89%, 99%
-    # --------------------------------
-
-    threshold_state = {
-        HIGH_THRESHOLDS[0]: "high_80_sent",
-        HIGH_THRESHOLDS[1]: "high_90_sent",
-        HIGH_THRESHOLDS[2]: "high_100_sent"
-    }
-
-    for threshold, state_key in threshold_state.items():
+        state_key = str(threshold)
 
         if soc >= threshold:
 
-            if not state[state_key]:
-
-                if threshold == HIGH_THRESHOLDS[0]:
-
-                    message = (
-                        f"Battery reached {soc:.0f}% — passed 80%"
-                    )
-
-                elif threshold == HIGH_THRESHOLDS[1]:
-
-                    message = (
-                        f"Battery reached {soc:.0f}% — passed 90%"
-                    )
-
-                else:
-
-                    message = (
-                        f"Battery reached {soc:.0f}% — nearly full"
-                    )
+            if not state["charging"][state_key]:
 
                 send_notification(
-                    "Deye Battery",
-                    message,
-                    "default",
+                    f"{message} — now at {soc:.0f}%",
+                    NORMAL_PRIORITY,
                     "battery,arrow_up"
                 )
 
-                state[state_key] = True
+                state["charging"][state_key] = True
 
         else:
 
-            state[state_key] = False
+            # Re-arm when battery falls below threshold
+            state["charging"][state_key] = False
 
 
-    # --------------------------------
-    # FULL BATTERY — 100%
-    # --------------------------------
+# ============================================================
+# DISCHARGING ALERTS
+# ============================================================
 
-    if soc >= FULL_THRESHOLD:
+def check_discharging_alerts(soc, state):
 
-        # Remember that the battery has actually
-        # reached full charge
+    for threshold, message in sorted(
+        DISCHARGING_ALERTS.items(),
+        reverse=True
+    ):
+
+        state_key = str(threshold)
+
+        if soc < threshold:
+
+            if not state["discharging"][state_key]:
+
+                # 31% and below gets high priority
+                if threshold <= 31:
+                    priority = WARNING_PRIORITY
+                    tags = "warning,battery"
+                else:
+                    priority = NORMAL_PRIORITY
+                    tags = "battery,arrow_down"
+
+                send_notification(
+                    f"{message} — now at {soc:.0f}%",
+                    priority,
+                    tags
+                )
+
+                state["discharging"][state_key] = True
+
+        else:
+
+            # Re-arm when battery goes back above threshold
+            state["discharging"][state_key] = False
+
+
+# ============================================================
+# FULL BATTERY
+# ============================================================
+
+def check_full_battery(soc, state):
+
+    if soc >= FULL_BATTERY:
+
+        # Remember that the battery actually reached 100%
         state["reached_100"] = True
 
-        # A new full-charge cycle allows the
-        # below-95% warning again
-        state["below_95_sent"] = False
+        # Re-arm AC warning for this new full-charge cycle
+        state["ac_warning_sent"] = False
 
-        if not state.get("full_100_sent", False):
+        if not state["full_battery_sent"]:
 
             send_notification(
-                "Deye Battery",
-                "Battery fully charged — 100%",
-                "high",
+                f"Battery fully charged — {FULL_BATTERY}%",
+                WARNING_PRIORITY,
                 "battery,white_check_mark"
             )
 
-            state["full_100_sent"] = True
+            state["full_battery_sent"] = True
 
     else:
 
-        state["full_100_sent"] = False
+        # Allow another full-battery notification
+        # after battery leaves 100%
+        state["full_battery_sent"] = False
 
 
-    # --------------------------------
-    # AFTER 100%:
-    # BATTERY BELOW 95%
-    # --------------------------------
+# ============================================================
+# AC WARNING
+# ============================================================
 
-    if state["reached_100"] and soc < AC_WARNING_THRESHOLD:
+def check_ac_warning(soc, state):
 
-        if not state["below_95_sent"]:
+    if not AC_WARNING_ENABLED:
+        return
+
+    # Only activate this warning after the battery
+    # has actually reached 100%
+    if not state["reached_100"]:
+        return
+
+    # Battery has fallen below the configured AC threshold
+    if soc < AC_WARNING_BELOW:
+
+        if not state["ac_warning_sent"]:
 
             send_notification(
-                "Deye Battery",
-                f"Battery dropped below {AC_WARNING_THRESHOLD}% — "
-                f"now at {soc:.0f}%. Consider turning off AC.",
-                "high",
+                AC_WARNING_MESSAGE
+                + f" Now at {soc:.0f}%.",
+                WARNING_PRIORITY,
                 "warning,battery"
             )
 
-            state["below_95_sent"] = True
+            state["ac_warning_sent"] = True
 
 
-# ==============================
-# MAIN
-# ==============================
+# ============================================================
+# MAIN BATTERY CHECK
+# ============================================================
+
+def check_battery(soc, state):
+
+    print("Checking battery alerts...")
+
+    check_charging_alerts(
+        soc,
+        state
+    )
+
+    check_discharging_alerts(
+        soc,
+        state
+    )
+
+    check_full_battery(
+        soc,
+        state
+    )
+
+    check_ac_warning(
+        soc,
+        state
+    )
+
+
+# ============================================================
+# MAIN PROGRAM
+# ============================================================
 
 def main():
 
+    print("================================")
     print("Starting Deye battery check...")
+    print("================================")
 
     state = load_state()
 
     access_token = get_access_token()
 
-    soc = get_battery_soc(access_token)
+    soc = get_battery_soc(
+        access_token
+    )
 
-    check_battery(soc, state)
+    check_battery(
+        soc,
+        state
+    )
 
-    save_state(state)
+    save_state(
+        state
+    )
 
+    print("================================")
     print("Check completed successfully.")
+    print("================================")
 
 
 if __name__ == "__main__":
