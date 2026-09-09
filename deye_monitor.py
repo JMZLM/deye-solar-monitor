@@ -177,7 +177,7 @@ def check_battery(soc, state):
         if not state["low_30_sent"]:
 
             send_notification(
-                "🔻 Deye Battery",
+                "Deye Battery",
                 f"TEST - Battery dropped to {soc:.0f}%",
                 "high",
                 "warning,battery"
@@ -201,7 +201,7 @@ def check_battery(soc, state):
         if not state["high_80_sent"]:
 
             send_notification(
-                "🔋 Deye Battery",
+                "Deye Battery",
                 f"Battery reached {soc:.0f}% — passed 80%",
                 "default",
                 "battery,arrow_up"
@@ -224,7 +224,7 @@ def check_battery(soc, state):
         if not state["high_90_sent"]:
 
             send_notification(
-                "🔋 Deye Battery",
+                "Deye Battery",
                 f"Battery reached {soc:.0f}% — passed 90%",
                 "default",
                 "battery,arrow_up"
@@ -247,7 +247,7 @@ def check_battery(soc, state):
         if not state["high_100_sent"]:
 
             send_notification(
-                "🟢 Deye Battery",
+                "Deye Battery",
                 "Battery fully charged — 100%",
                 "high",
                 "battery,white_check_mark"
