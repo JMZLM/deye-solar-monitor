@@ -5,6 +5,10 @@ on:
     - cron: "*/5 * * * *"
   workflow_dispatch:
 
+concurrency:
+  group: deye-battery-monitor
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
@@ -37,6 +41,15 @@ jobs:
         run: |
           git config user.name "Deye Monitor"
           git config user.email "deye-monitor@users.noreply.github.com"
+      
           git add state.json
-          git diff --cached --quiet || git commit -m "Update battery alert state"
+      
+          if git diff --cached --quiet; then
+            echo "No state changes to save."
+            exit 0
+          fi
+      
+          git commit -m "Update battery alert state"
+      
+          git pull --rebase origin main
           git push
