@@ -15,7 +15,7 @@ $token = Read-Host "Paste your GitHub token"
 ------------------------------
 
 then a press enter
-then paste the GitHub token
+then paste the GitHub token (on manager)
 
 ------------------------------
 ------------------------------
