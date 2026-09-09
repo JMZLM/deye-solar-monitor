@@ -37,19 +37,20 @@ CHARGING_ALERTS = {
 #
 DISCHARGING_ALERTS = {
     80: "Battery dropped below 80%",
+    69: "Battery dropped below 69%",
     60: "Battery dropped below 60%",
     40: "Battery dropped below 40%",
     31: "CRITICAL: Battery is very low"
 }
 
 # ------------------------------------------------------------
-# 🔋 FULL BATTERY
+# FULL BATTERY
 # ------------------------------------------------------------
 
 FULL_BATTERY = 100
 
 # ------------------------------------------------------------
-# 🔌 AC WARNING
+# AC WARNING
 # ------------------------------------------------------------
 
 # Enable/disable the special AC warning
@@ -65,7 +66,7 @@ AC_WARNING_MESSAGE = (
 )
 
 # ------------------------------------------------------------
-# ⚠️ NOTIFICATION PRIORITY
+# NOTIFICATION PRIORITY
 # ------------------------------------------------------------
 
 # Options:
@@ -79,7 +80,7 @@ NORMAL_PRIORITY = "default"
 WARNING_PRIORITY = "high"
 
 # ============================================================
-# ⚙️ SYSTEM SETTINGS — DON'T CHANGE THESE
+# SYSTEM SETTINGS — DON'T CHANGE THESE
 # ============================================================
 
 DEYE_BASE_URL = (
