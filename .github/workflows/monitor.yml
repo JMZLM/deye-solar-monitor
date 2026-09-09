@@ -1,0 +1,42 @@
+name: Deye Battery Monitor
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install requests
+        run: pip install requests
+
+      - name: Run Deye monitor
+        env:
+          DEYE_APP_ID: ${{ secrets.DEYE_APP_ID }}
+          DEYE_APP_SECRET: ${{ secrets.DEYE_APP_SECRET }}
+          DEYE_EMAIL: ${{ secrets.DEYE_EMAIL }}
+          DEYE_PASSWORD: ${{ secrets.DEYE_PASSWORD }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: python deye_monitor.py
+
+      - name: Save alert state
+        run: |
+          git config user.name "Deye Monitor"
+          git config user.email "deye-monitor@users.noreply.github.com"
+          git add state.json
+          git diff --cached --quiet || git commit -m "Update battery alert state"
+          git push
