@@ -115,12 +115,20 @@ def get_battery_soc(access_token):
     response.raise_for_status()
 
     data = response.json()
-
+    
     if not data.get("success"):
         raise Exception(f"Deye station request failed: {data}")
-
-    latest = data["data"]
-
+    
+    print("Deye station response received.")
+    
+    if "data" in data:
+        latest = data["data"]
+    else:
+        latest = data
+    
+    if "batterySOC" not in latest:
+        raise Exception(f"Battery SOC not found in Deye response: {data}")
+    
     soc = float(latest["batterySOC"])
 
     print(f"Battery SOC: {soc}%")
