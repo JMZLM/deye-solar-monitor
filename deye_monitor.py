@@ -82,7 +82,7 @@ def get_access_token():
 
     data = response.json()
 
-    if data.get("code") != 1000000:
+    if str(data.get("code")) != "1000000":
         raise Exception(f"Deye authentication failed: {data}")
 
     return data["accessToken"]
