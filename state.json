@@ -5,5 +5,18 @@
   "high_100_sent": false,
   "full_100_sent": false,
   "reached_100": false,
-  "below_95_sent": false
+  "below_95_sent": false,
+  "charging": {
+    "80": false,
+    "90": false,
+    "99": false
+  },
+  "discharging": {
+    "80": true,
+    "60": false,
+    "40": false,
+    "31": false
+  },
+  "full_battery_sent": false,
+  "ac_warning_sent": false
 }
