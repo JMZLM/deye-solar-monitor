@@ -15,8 +15,8 @@ STATION_ID = 62615671
 # Battery Alert Settings
 # ==============================
 
-LOW_THRESHOLD = 30
-HIGH_THRESHOLDS = [80, 90, 100]
+LOW_THRESHOLD = 31
+HIGH_THRESHOLDS = [79, 89, 99]
 
 STATE_FILE = "state.json"
 
