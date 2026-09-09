@@ -1,0 +1,38 @@
+### REMOVE RUNS
+
+------------------------------
+------------------------------
+
+OPEN POWERSHELL
+
+------------------------------
+------------------------------
+
+
+$token = Read-Host "Paste your GitHub token"
+
+------------------------------
+------------------------------
+
+then a press enter
+then paste the GitHub token
+
+------------------------------
+------------------------------
+
+
+$headers = @{
+    Authorization = "Bearer $token"
+    Accept = "application/vnd.github+json"
+}
+
+$runs = Invoke-RestMethod -Uri "https://api.github.com/repos/JMZLM/deye-solar-monitor/actions/runs?per_page=100" -Headers $headers
+
+foreach ($run in $runs.workflow_runs) {
+    if ($run.name -eq "Deye Battery Monitor") {
+        Write-Host "Deleting run $($run.id)..."
+        Invoke-RestMethod -Method Delete -Uri "https://api.github.com/repos/JMZLM/deye-solar-monitor/actions/runs/$($run.id)" -Headers $headers
+    }
+}
+
+Write-Host "Cleanup finished."
