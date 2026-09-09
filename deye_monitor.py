@@ -82,7 +82,7 @@ def get_access_token():
 
     data = response.json()
 
-    if str(data.get("code")) != "1000000":
+    if not data.get("success"):
         raise Exception(f"Deye authentication failed: {data}")
 
     return data["accessToken"]
@@ -116,7 +116,7 @@ def get_battery_soc(access_token):
 
     data = response.json()
 
-    if data.get("code") != 1000000:
+    if not data.get("success"):
         raise Exception(f"Deye station request failed: {data}")
 
     latest = data["data"]
