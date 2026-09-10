@@ -14,7 +14,7 @@
   "discharging": {
     "80": true,
     "60": true,
-    "40": false,
+    "40": true,
     "31": false,
     "69": true,
     "68": true
