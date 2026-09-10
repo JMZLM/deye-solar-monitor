@@ -10,6 +10,23 @@ import requests
 # Deye station
 STATION_ID = 62615671
 
+
+# ------------------------------------------------------------
+# SOLAR PRODUCTION DROP ALERT
+# ------------------------------------------------------------
+# The alert only becomes active AFTER solar production has
+# reached the trigger level. This helps detect a sudden
+# drop caused by heavy clouds/rain rather than alerting
+# simply because production is low at sunrise/sunset.
+
+PRODUCTION_TRIGGER = 2.0       # kW - production must reach this first
+PRODUCTION_DROP_BELOW = 0.7    # kW - alert when production later falls below this
+
+PRODUCTION_DROP_MESSAGE = (
+    "Solar production dropped sharply — "
+    "possible heavy cloud/rain."
+)
+
 # ------------------------------------------------------------
 # CHARGING ALERTS
 # ------------------------------------------------------------
@@ -105,7 +122,9 @@ def create_default_state():
         "discharging": {},
         "full_battery_sent": False,
         "reached_100": False,
-        "ac_warning_sent": False
+        "ac_warning_sent": False,
+        "production_reached_trigger": False,
+        "production_drop_alert_sent": False
     }
 
     for threshold in CHARGING_ALERTS:
@@ -134,6 +153,8 @@ def load_state():
     state.setdefault("full_battery_sent", False)
     state.setdefault("reached_100", False)
     state.setdefault("ac_warning_sent", False)
+    state.setdefault("production_trigger_reached", False)
+    state.setdefault("production_drop_alert_sent", False)
 
     # Add newly configured thresholds automatically
     for threshold in CHARGING_ALERTS:
@@ -193,7 +214,7 @@ def get_access_token():
     return data["accessToken"]
 
 
-def get_battery_soc(access_token):
+def get_station_data(access_token):
 
     url = f"{DEYE_BASE_URL}/station/latest"
 
@@ -234,11 +255,18 @@ def get_battery_soc(access_token):
             f"Battery SOC not found in Deye response: {data}"
         )
 
+    if "generationPower" not in latest:
+        raise Exception(
+            f"Solar production not found in Deye response: {data}"
+        )
+
     soc = float(latest["batterySOC"])
-
+    production = float(latest["generationPower"])
+    
     print(f"Battery SOC: {soc}%")
-
-    return soc
+    print(f"Solar production: {production} kW")
+    
+    return soc, production
 
 
 # ============================================================
@@ -400,11 +428,52 @@ def check_ac_warning(soc, state):
             state["ac_warning_sent"] = True
 
 
+
+
+# ============================================================
+# SOLAR PRODUCTION DROP WARNING
+# ============================================================
+
+def check_production_drop(production, state):
+
+    # First, wait until solar production has reached
+    # the configured high-production trigger.
+    if production >= PRODUCTION_TRIGGER:
+
+        state["production_trigger_reached"] = True
+
+        # Re-arm the warning for the next drop.
+        state["production_drop_alert_sent"] = False
+
+        return
+
+    # Do nothing if production has never reached
+    # the trigger level.
+    if not state["production_trigger_reached"]:
+        return
+
+    # Production has previously been high and has
+    # now fallen below the configured low level.
+    if production < PRODUCTION_DROP_BELOW:
+
+        if not state["production_drop_alert_sent"]:
+
+            send_notification(
+                PRODUCTION_DROP_MESSAGE
+                + f" Now at {production:.2f} kW.",
+                WARNING_PRIORITY,
+                "warning,partly_sunny"
+            )
+
+            state["production_drop_alert_sent"] = True
+
+
+
 # ============================================================
 # MAIN BATTERY CHECK
 # ============================================================
 
-def check_battery(soc, state):
+def check_battery(soc, production, state):
 
     print("Checking battery alerts...")
 
@@ -428,6 +497,11 @@ def check_battery(soc, state):
         state
     )
 
+    check_production_drop(
+        production,
+        state
+    )
+
 
 # ============================================================
 # MAIN PROGRAM
@@ -443,12 +517,13 @@ def main():
 
     access_token = get_access_token()
 
-    soc = get_battery_soc(
+    soc, production = get_station_data(
         access_token
     )
 
     check_battery(
         soc,
+        production,
         state
     )
 
