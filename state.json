@@ -7,12 +7,12 @@
   "reached_100": false,
   "below_95_sent": false,
   "charging": {
-    "80": true,
+    "80": false,
     "90": false,
     "99": false
   },
   "discharging": {
-    "80": false,
+    "80": true,
     "60": false,
     "40": false,
     "31": false,
