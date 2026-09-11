@@ -123,7 +123,7 @@ def create_default_state():
         "full_battery_sent": False,
         "reached_100": False,
         "ac_warning_sent": False,
-        "production_reached_trigger": False,
+        "production_trigger_reached": False,
         "production_drop_alert_sent": False
     }
 
