@@ -20,7 +20,7 @@ STATION_ID = 62615671
 # simply because production is low at sunrise/sunset.
 
 PRODUCTION_TRIGGER = 0.002       # kW - production must reach this first
-PRODUCTION_DROP_BELOW = 0    # kW - alert when production later falls below this
+PRODUCTION_DROP_BELOW = 0.001    # kW - alert when production later falls below this
 
 PRODUCTION_DROP_MESSAGE = (
     "Solar production dropped sharply — "
