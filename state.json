@@ -8,7 +8,7 @@
   "below_95_sent": false,
   "charging": {
     "80": true,
-    "90": false,
+    "90": true,
     "99": false
   },
   "discharging": {
