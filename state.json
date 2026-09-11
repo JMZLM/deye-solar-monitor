@@ -9,7 +9,8 @@
     "80": false,
     "60": false,
     "40": false,
-    "31": false
+    "31": false,
+    "95": true
   },
   "full_battery_sent": false,
   "ac_warning_sent": false,
