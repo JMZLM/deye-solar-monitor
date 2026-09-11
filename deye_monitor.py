@@ -81,6 +81,12 @@ AC_WARNING_MESSAGE = (
 # ------------------------------------------------------------
 # NOTIFICATION PRIORITY
 # ------------------------------------------------------------
+# Options:
+# "min"
+# "low"
+# "default"
+# "high"
+# "max"
 
 NORMAL_PRIORITY = "default"
 WARNING_PRIORITY = "high"
@@ -119,11 +125,9 @@ def create_default_state():
     }
 
     for threshold in CHARGING_ALERTS:
-
         state["charging"][str(threshold)] = False
 
     for threshold in DISCHARGING_ALERTS:
-
         state["discharging"][str(threshold)] = False
 
     return state
@@ -132,65 +136,28 @@ def create_default_state():
 def load_state():
 
     if not os.path.exists(STATE_FILE):
-
         return create_default_state()
 
     try:
-
         with open(STATE_FILE, "r") as f:
-
             state = json.load(f)
-
     except Exception:
-
         print(
-            "Could not read state.json. "
-            "Creating new state."
-        )
-
+            "Could not read state.json. Creating new state.")
         return create_default_state()
 
     # Make sure required sections exist
-
-    state.setdefault(
-        "charging",
-        {}
-    )
-
-    state.setdefault(
-        "discharging",
-        {}
-    )
-
-    state.setdefault(
-        "full_battery_sent",
-        False
-    )
-
-    state.setdefault(
-        "reached_100",
-        False
-    )
-
-    state.setdefault(
-        "ac_warning_sent",
-        False
-    )
-
-    state.setdefault(
-        "production_trigger_reached",
-        False
-    )
-
-    state.setdefault(
-        "production_drop_alert_sent",
-        False
-    )
+    state.setdefault("charging",{})
+    state.setdefault("discharging",{})
+    state.setdefault("full_battery_sent",False)
+    state.setdefault("reached_100",False)
+    state.setdefault("ac_warning_sent",False)
+    state.setdefault("production_trigger_reached",False)
+    state.setdefault("production_drop_alert_sent",False)
 
     # Add newly configured charging thresholds
 
     for threshold in CHARGING_ALERTS:
-
         state["charging"].setdefault(
             str(threshold),
             False
@@ -199,24 +166,16 @@ def load_state():
     # Add newly configured discharging thresholds
 
     for threshold in DISCHARGING_ALERTS:
-
         state["discharging"].setdefault(
             str(threshold),
             False
         )
-
     return state
 
 
 def save_state(state):
-
     with open(STATE_FILE, "w") as f:
-
-        json.dump(
-            state,
-            f,
-            indent=2
-        )
+        json.dump(state,f,indent=2)
 
 
 # ============================================================
@@ -229,9 +188,7 @@ def get_access_token():
         DEYE_PASSWORD.encode("utf-8")
     ).hexdigest()
 
-    url = (
-        f"{DEYE_BASE_URL}/account/token"
-    )
+    url = (f"{DEYE_BASE_URL}/account/token")
 
     payload = {
         "appSecret": DEYE_APP_SECRET,
@@ -241,9 +198,7 @@ def get_access_token():
 
     response = requests.post(
         url,
-        params={
-            "appId": DEYE_APP_ID
-        },
+        params={"appId": DEYE_APP_ID},
         json=payload,
         timeout=30
     )
@@ -253,7 +208,6 @@ def get_access_token():
     data = response.json()
 
     if not data.get("success"):
-
         raise Exception(
             f"Deye authentication failed: {data}"
         )
@@ -306,39 +260,24 @@ def get_station_data(access_token):
             f"{station_result}"
         )
 
-    print(
-        "Deye station response received."
-    )
+    print("Deye station response received.")
 
     if "data" in station_result:
-
         latest = station_result["data"]
-
     else:
-
         latest = station_result
-
+        
     if "batterySOC" not in latest:
-
         raise Exception(
             "Battery SOC not found in Deye response: "
             f"{station_result}"
         )
 
-    soc = float(
-        latest["batterySOC"]
-    )
+    soc = float(latest["batterySOC"])
 
-    print(
-        "RAW Deye station data:"
-    )
+    print("RAW Deye station data:")
 
-    print(
-        json.dumps(
-            latest,
-            indent=2
-        )
-    )
+    print(json.dumps(latest,indent=2))
 
     # This value is intentionally printed for comparison.
     #
@@ -924,17 +863,9 @@ def check_battery(
 
 def main():
 
-    print(
-        "================================"
-    )
-
-    print(
-        "Starting Deye battery check..."
-    )
-
-    print(
-        "================================"
-    )
+    print("================================")
+    print("Starting Deye battery check...")
+    print("================================")
 
     state = load_state()
 
@@ -954,19 +885,10 @@ def main():
         state
     )
 
-    print(
-        "================================"
-    )
-
-    print(
-        "Check completed successfully."
-    )
-
-    print(
-        "================================"
-    )
+    print("================================")
+    print("Check completed successfully.")
+    print("================================")
 
 
 if __name__ == "__main__":
-
     main()
