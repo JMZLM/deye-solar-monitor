@@ -274,7 +274,9 @@ def get_station_data(access_token):
     device_url = f"{DEYE_BASE_URL}/station/device"
 
     device_payload = {
-        "stationId": STATION_ID
+    	"stationIds": [STATION_ID],
+        "page": 1,
+        "size": 20
     }
 
     device_response = requests.post(
