@@ -53,6 +53,7 @@ CHARGING_ALERTS = {
 # 60: "Battery dropped below 60%"
 #
 DISCHARGING_ALERTS = {
+	95: "Battery dropped below 95%",
     80: "Battery dropped below 80%",
     60: "Battery dropped below 60%",
     40: "Battery dropped below 40%",
