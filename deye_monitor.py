@@ -10,17 +10,26 @@ import requests
 # Deye station
 STATION_ID = 62615671
 
-
 # ------------------------------------------------------------
 # SOLAR PRODUCTION DROP ALERT
 # ------------------------------------------------------------
 # The alert only becomes active AFTER solar production has
-# reached the trigger level. This helps detect a sudden
-# drop caused by heavy clouds/rain rather than alerting
-# simply because production is low at sunrise/sunset.
+# reached the trigger level.
+#
+# 2.0 kW = 2,000 W
+# 0.7 kW = 700 W
+#
+# Example:
+#   Production reaches 2.0 kW or higher
+#       ↓
+#   Alert becomes armed
+#       ↓
+#   Production later falls below 0.7 kW
+#       ↓
+#   Send notification
 
-PRODUCTION_TRIGGER = 0.002       # kW - production must reach this first
-PRODUCTION_DROP_BELOW = 0.001    # kW - alert when production later falls below this
+PRODUCTION_TRIGGER = 2.0
+PRODUCTION_DROP_BELOW = 0.7
 
 PRODUCTION_DROP_MESSAGE = (
     "Solar production dropped sharply — "
@@ -31,13 +40,7 @@ PRODUCTION_DROP_MESSAGE = (
 # CHARGING ALERTS
 # ------------------------------------------------------------
 # Alert when battery reaches/passes these levels while charging.
-#
-# Example:
-# 80: "Battery passed 80%"
-#
-# To add another alert:
-# 70: "Battery passed 70%"
-#
+
 CHARGING_ALERTS = {
     80: "Battery passed 80%",
     90: "Battery passed 90%",
@@ -48,12 +51,9 @@ CHARGING_ALERTS = {
 # DISCHARGING ALERTS
 # ------------------------------------------------------------
 # Alert when battery drops BELOW these levels.
-#
-# Example:
-# 60: "Battery dropped below 60%"
-#
+
 DISCHARGING_ALERTS = {
-	95: "Battery dropped below 95%",
+    95: "Battery dropped below 95%",
     80: "Battery dropped below 80%",
     60: "Battery dropped below 60%",
     40: "Battery dropped below 40%",
@@ -70,11 +70,8 @@ FULL_BATTERY = 100
 # AC WARNING
 # ------------------------------------------------------------
 
-# Enable/disable the special AC warning
 AC_WARNING_ENABLED = True
 
-# After the battery reaches 100%, send an alert
-# when it later drops below this percentage.
 AC_WARNING_BELOW = 95
 
 AC_WARNING_MESSAGE = (
@@ -85,13 +82,6 @@ AC_WARNING_MESSAGE = (
 # ------------------------------------------------------------
 # NOTIFICATION PRIORITY
 # ------------------------------------------------------------
-
-# Options:
-# "min"
-# "low"
-# "default"
-# "high"
-# "max"
 
 NORMAL_PRIORITY = "default"
 WARNING_PRIORITY = "high"
@@ -112,12 +102,12 @@ DEYE_EMAIL = os.environ["DEYE_EMAIL"]
 DEYE_PASSWORD = os.environ["DEYE_PASSWORD"]
 NTFY_TOPIC = os.environ["NTFY_TOPIC"]
 
-
 # ============================================================
 # STATE MANAGEMENT
 # ============================================================
 
 def create_default_state():
+
     state = {
         "charging": {},
         "discharging": {},
@@ -138,33 +128,74 @@ def create_default_state():
 
 
 def load_state():
+
     if not os.path.exists(STATE_FILE):
         return create_default_state()
 
     try:
+
         with open(STATE_FILE, "r") as f:
             state = json.load(f)
+
     except Exception:
-        print("Could not read state.json. Creating new state.")
+
+        print(
+            "Could not read state.json. "
+            "Creating new state."
+        )
+
         return create_default_state()
 
     # Make sure required sections exist
-    state.setdefault("charging", {})
-    state.setdefault("discharging", {})
-    state.setdefault("full_battery_sent", False)
-    state.setdefault("reached_100", False)
-    state.setdefault("ac_warning_sent", False)
-    state.setdefault("production_trigger_reached", False)
-    state.setdefault("production_drop_alert_sent", False)
 
-    # Add newly configured thresholds automatically
+    state.setdefault(
+        "charging",
+        {}
+    )
+
+    state.setdefault(
+        "discharging",
+        {}
+    )
+
+    state.setdefault(
+        "full_battery_sent",
+        False
+    )
+
+    state.setdefault(
+        "reached_100",
+        False
+    )
+
+    state.setdefault(
+        "ac_warning_sent",
+        False
+    )
+
+    state.setdefault(
+        "production_trigger_reached",
+        False
+    )
+
+    state.setdefault(
+        "production_drop_alert_sent",
+        False
+    )
+
+    # Add newly configured charging thresholds automatically
+
     for threshold in CHARGING_ALERTS:
+
         state["charging"].setdefault(
             str(threshold),
             False
         )
 
+    # Add newly configured discharging thresholds automatically
+
     for threshold in DISCHARGING_ALERTS:
+
         state["discharging"].setdefault(
             str(threshold),
             False
@@ -174,9 +205,14 @@ def load_state():
 
 
 def save_state(state):
-    with open(STATE_FILE, "w") as f:
-        json.dump(state, f, indent=2)
 
+    with open(STATE_FILE, "w") as f:
+
+        json.dump(
+            state,
+            f,
+            indent=2
+        )
 
 # ============================================================
 # DEYE API
@@ -208,12 +244,17 @@ def get_access_token():
     data = response.json()
 
     if not data.get("success"):
+
         raise Exception(
             f"Deye authentication failed: {data}"
         )
 
     return data["accessToken"]
 
+
+# ============================================================
+# GET STATION + INVERTER DATA
+# ============================================================
 
 def get_station_data(access_token):
 
@@ -222,174 +263,387 @@ def get_station_data(access_token):
         "Content-Type": "application/json"
     }
 
-    # ============================================================
-    # 1. Get station-level data
-    # ============================================================
+    # ========================================================
+    # 1. GET STATION DATA
+    # ========================================================
 
-    url = f"{DEYE_BASE_URL}/station/latest"
+    station_url = (
+        f"{DEYE_BASE_URL}/station/latest"
+    )
 
-    payload = {
+    station_payload = {
         "stationId": STATION_ID
     }
 
-    response = requests.post(
-        url,
+    station_response = requests.post(
+        station_url,
         headers=headers,
-        json=payload,
+        json=station_payload,
         timeout=30
     )
 
-    response.raise_for_status()
+    station_response.raise_for_status()
 
-    data = response.json()
+    station_result = station_response.json()
 
-    if not data.get("success"):
+    if not station_result.get("success"):
+
         raise Exception(
-            f"Deye station request failed: {data}"
+            "Deye station request failed: "
+            f"{station_result}"
         )
 
-    print("Deye station response received.")
+    print(
+        "Deye station response received."
+    )
 
-    if "data" in data:
-        latest = data["data"]
+    if "data" in station_result:
+
+        latest = station_result["data"]
+
     else:
-        latest = data
+
+        latest = station_result
 
     if "batterySOC" not in latest:
+
         raise Exception(
-            f"Battery SOC not found in Deye response: {data}"
+            "Battery SOC not found in Deye response: "
+            f"{station_result}"
         )
 
-    soc = float(latest["batterySOC"])
+    print(
+        "RAW Deye station data:"
+    )
 
-    print("RAW Deye station data:")
-    print(json.dumps(latest, indent=2))
+    print(
+        json.dumps(
+            latest,
+            indent=2
+        )
+    )
 
-    print(f"Station generationPower: {latest.get('generationPower')} kW")
+    soc = float(
+        latest["batterySOC"]
+    )
 
-    # ============================================================
-    # 2. Find the inverter/device belonging to this station
-    # ============================================================
+    # IMPORTANT:
+    #
+    # We deliberately DO NOT use:
+    #
+    # latest["generationPower"]
+    #
+    # because your station endpoint is currently
+    # reporting 4.0 kW even when the Deye app shows
+    # approximately 2 W.
+    #
 
-    device_url = f"{DEYE_BASE_URL}/station/device"
+    print(
+        f"Station generationPower: "
+        f"{latest.get('generationPower')} kW"
+    )
 
-    device_payload = {
-    	"stationIds": [STATION_ID],
+    # ========================================================
+    # 2. FIND DEVICES CONNECTED TO THE STATION
+    # ========================================================
+
+    device_list_url = (
+        f"{DEYE_BASE_URL}/station/device"
+    )
+
+    device_list_payload = {
+        "stationIds": [STATION_ID],
         "page": 1,
         "size": 20
     }
 
-    device_response = requests.post(
-        device_url,
+    device_list_response = requests.post(
+        device_list_url,
         headers=headers,
-        json=device_payload,
+        json=device_list_payload,
         timeout=30
     )
 
-    device_response.raise_for_status()
+    device_list_response.raise_for_status()
 
-    device_data = device_response.json()
+    device_list_result = (
+        device_list_response.json()
+    )
 
-    if not device_data.get("success"):
+    if not device_list_result.get("success"):
+
         raise Exception(
-            f"Deye station device request failed: {device_data}"
+            "Deye station device request failed: "
+            f"{device_list_result}"
         )
 
-    devices = device_data.get("deviceListItems", [])
+    devices = device_list_result.get(
+        "deviceListItems",
+        []
+    )
 
     if not devices:
+
         raise Exception(
-            f"No devices found for station {STATION_ID}: "
-            f"{device_data}"
+            "No devices found for station "
+            f"{STATION_ID}: "
+            f"{device_list_result}"
         )
 
-    print("Deye station devices:")
-    print(json.dumps(devices, indent=2))
+    print(
+        "Deye station devices:"
+    )
 
-    device_sn = devices[0].get("deviceSn")
+    print(
+        json.dumps(
+            devices,
+            indent=2
+        )
+    )
 
-    if not device_sn:
+    # ========================================================
+    # 3. FIND ALL INVERTERS
+    # ========================================================
+
+    inverter_devices = [
+        device
+        for device in devices
+        if device.get("deviceType") == "INVERTER"
+    ]
+
+    if not inverter_devices:
+
         raise Exception(
-            f"Device serial number not found: {devices[0]}"
+            "No inverter device found. "
+            f"Devices returned: {devices}"
         )
 
-    print(f"Using Deye device SN: {device_sn}")
+    print(
+        "Deye inverter devices:"
+    )
 
-    # ============================================================
-    # 3. Get actual inverter telemetry
-    # ============================================================
+    print(
+        json.dumps(
+            inverter_devices,
+            indent=2
+        )
+    )
 
-    device_url = f"{DEYE_BASE_URL}/device/latest"
+    device_sns = [
+        device["deviceSn"]
+        for device in inverter_devices
+        if device.get("deviceSn")
+    ]
 
-    device_payload = {
-        "deviceList": [device_sn]
+    if not device_sns:
+
+        raise Exception(
+            "No inverter device serial numbers found."
+        )
+
+    print(
+        "Querying Deye device SNs: "
+        f"{device_sns}"
+    )
+
+    # ========================================================
+    # 4. GET INVERTER TELEMETRY
+    # ========================================================
+
+    device_latest_url = (
+        f"{DEYE_BASE_URL}/device/latest"
+    )
+
+    device_latest_payload = {
+        "deviceList": device_sns
     }
 
-    device_response = requests.post(
-        device_url,
+    device_latest_response = requests.post(
+        device_latest_url,
         headers=headers,
-        json=device_payload,
+        json=device_latest_payload,
         timeout=30
     )
 
-    device_response.raise_for_status()
+    device_latest_response.raise_for_status()
 
-    device_latest = device_response.json()
+    device_latest = (
+        device_latest_response.json()
+    )
 
     if not device_latest.get("success"):
+
         raise Exception(
-            f"Deye device request failed: {device_latest}"
+            "Deye device request failed: "
+            f"{device_latest}"
         )
 
-    print("RAW Deye device data:")
-    print(json.dumps(device_latest, indent=2))
+    print(
+        "RAW Deye device data:"
+    )
 
-    device_data_list = device_latest.get("deviceDataList", [])
+    print(
+        json.dumps(
+            device_latest,
+            indent=2
+        )
+    )
+
+    device_data_list = (
+        device_latest.get(
+            "deviceDataList",
+            []
+        )
+    )
+
+    print(
+        "Number of device telemetry results: "
+        f"{len(device_data_list)}"
+    )
+
+    # ========================================================
+    # 5. STOP IF DEYE RETURNS NO TELEMETRY
+    # ========================================================
 
     if not device_data_list:
+
         raise Exception(
-            f"No device telemetry returned: {device_latest}"
+            "Deye returned no device telemetry. "
+            f"Requested devices: {device_sns}. "
+            f"Response: {device_latest}"
         )
 
-    data_list = device_data_list[0].get("dataList", [])
+    # ========================================================
+    # 6. PRINT ALL INVERTER TELEMETRY
+    # ========================================================
 
-    # Convert Deye telemetry into:
-    # {
-    #     "TotalSolarPower": value,
-    #     "SOC": value,
-    #     ...
-    # }
-    telemetry = {
-        item["key"]: item["value"]
-        for item in data_list
-        if item.get("key")
-    }
+    all_telemetry = {}
 
-    print("Deye inverter telemetry keys:")
-    print(json.dumps(telemetry, indent=2))
+    for device_result in device_data_list:
 
-    # ============================================================
-    # 4. Use inverter PV power instead of station generationPower
-    # ============================================================
-
-    if "TotalSolarPower" not in telemetry:
-        raise Exception(
-            "TotalSolarPower not found in Deye device telemetry. "
-            f"Available keys: {list(telemetry.keys())}"
+        device_sn = device_result.get(
+            "deviceSn"
         )
 
-    production_watts = float(telemetry["TotalSolarPower"])
+        device_type = device_result.get(
+            "deviceType"
+        )
 
-    # Deye device telemetry reports solar power in watts.
-    # Convert W -> kW because the rest of this script uses kW.
-    production = production_watts / 1000.0
+        data_list = device_result.get(
+            "dataList",
+            []
+        )
 
-    print(f"Battery SOC: {soc}%")
-    print(f"Station generationPower: {latest.get('generationPower')} kW")
-    print(f"Inverter TotalSolarPower: {production_watts} W")
-    print(f"Solar production used by alert: {production:.3f} kW")
+        print(
+            "--------------------------------"
+        )
 
-    return soc, production
+        print(
+            f"Device: {device_sn}"
+        )
+
+        print(
+            f"Device type: {device_type}"
+        )
+
+        print(
+            "Telemetry:"
+        )
+
+        print(
+            json.dumps(
+                data_list,
+                indent=2
+            )
+        )
+
+        # Convert key/value telemetry into a dictionary
+
+        telemetry = {}
+
+        for item in data_list:
+
+            key = item.get("key")
+
+            if key:
+
+                telemetry[key] = item.get(
+                    "value"
+                )
+
+        all_telemetry[device_sn] = telemetry
+
+    print(
+        "================================"
+    )
+
+    print(
+        "Deye inverter telemetry keys:"
+    )
+
+    print(
+        json.dumps(
+            all_telemetry,
+            indent=2
+        )
+    )
+
+    # ========================================================
+    # IMPORTANT:
+    #
+    # DO NOT ASSUME TotalSolarPower YET.
+    #
+    # We are first checking exactly what your inverter
+    # returns.
+    # ========================================================
+
+    print(
+        "================================"
+    )
+
+    print(
+        "Inverter telemetry successfully received."
+    )
+
+    print(
+        "Solar production value will NOT yet be "
+        "taken from station generationPower."
+    )
+
+    print(
+        "The telemetry above will show the correct "
+        "PV power field for your inverter."
+    )
+
+    # ========================================================
+    # TEMPORARY:
+    #
+    # Keep the existing station value ONLY so the script
+    # can complete while we inspect the device telemetry.
+    #
+    # DO NOT use this as the final production source.
+    # ========================================================
+
+    station_production = float(
+        latest["generationPower"]
+    )
+
+    print(
+        f"Battery SOC: {soc}%"
+    )
+
+    print(
+        f"Station generationPower: "
+        f"{station_production} kW"
+    )
+
+    print(
+        "WARNING: Production alert is currently "
+        "using station generationPower temporarily."
+    )
+
+    return soc, station_production
+
 
 # ============================================================
 # NTFY
@@ -401,7 +655,9 @@ def send_notification(
     tags="battery"
 ):
 
-    url = f"https://ntfy.sh/{NTFY_TOPIC}"
+    url = (
+        f"https://ntfy.sh/{NTFY_TOPIC}"
+    )
 
     headers = {
         "Title": "Deye Battery",
@@ -418,27 +674,35 @@ def send_notification(
 
     response.raise_for_status()
 
-    print(f"Notification sent: {message}")
+    print(
+        f"Notification sent: {message}"
+    )
 
 
 # ============================================================
 # CHARGING ALERTS
 # ============================================================
 
-def check_charging_alerts(soc, state):
+def check_charging_alerts(
+    soc,
+    state
+):
 
     for threshold, message in sorted(
         CHARGING_ALERTS.items()
     ):
 
-        state_key = str(threshold)
+        state_key = str(
+            threshold
+        )
 
         if soc >= threshold:
 
             if not state["charging"][state_key]:
 
                 send_notification(
-                    f"{message} — now at {soc:.0f}%",
+                    f"{message} — "
+                    f"now at {soc:.0f}%",
                     NORMAL_PRIORITY,
                     "battery,arrow_up"
                 )
@@ -448,6 +712,7 @@ def check_charging_alerts(soc, state):
         else:
 
             # Re-arm when battery falls below threshold
+
             state["charging"][state_key] = False
 
 
@@ -455,29 +720,39 @@ def check_charging_alerts(soc, state):
 # DISCHARGING ALERTS
 # ============================================================
 
-def check_discharging_alerts(soc, state):
+def check_discharging_alerts(
+    soc,
+    state
+):
 
     for threshold, message in sorted(
         DISCHARGING_ALERTS.items(),
         reverse=True
     ):
 
-        state_key = str(threshold)
+        state_key = str(
+            threshold
+        )
 
         if soc < threshold:
 
             if not state["discharging"][state_key]:
 
                 # 31% and below gets high priority
+
                 if threshold <= 31:
+
                     priority = WARNING_PRIORITY
                     tags = "warning,battery"
+
                 else:
+
                     priority = NORMAL_PRIORITY
                     tags = "battery,arrow_down"
 
                 send_notification(
-                    f"{message} — now at {soc:.0f}%",
+                    f"{message} — "
+                    f"now at {soc:.0f}%",
                     priority,
                     tags
                 )
@@ -487,6 +762,7 @@ def check_discharging_alerts(soc, state):
         else:
 
             # Re-arm when battery goes back above threshold
+
             state["discharging"][state_key] = False
 
 
@@ -494,20 +770,26 @@ def check_discharging_alerts(soc, state):
 # FULL BATTERY
 # ============================================================
 
-def check_full_battery(soc, state):
+def check_full_battery(
+    soc,
+    state
+):
 
     if soc >= FULL_BATTERY:
 
-        # Remember that the battery actually reached 100%
+        # Remember that battery actually reached 100%
+
         state["reached_100"] = True
 
         # Re-arm AC warning for this new full-charge cycle
+
         state["ac_warning_sent"] = False
 
         if not state["full_battery_sent"]:
 
             send_notification(
-                f"Battery fully charged — {FULL_BATTERY}%",
+                f"Battery fully charged — "
+                f"{FULL_BATTERY}%",
                 WARNING_PRIORITY,
                 "battery,white_check_mark"
             )
@@ -518,6 +800,7 @@ def check_full_battery(soc, state):
 
         # Allow another full-battery notification
         # after battery leaves 100%
+
         state["full_battery_sent"] = False
 
 
@@ -525,17 +808,24 @@ def check_full_battery(soc, state):
 # AC WARNING
 # ============================================================
 
-def check_ac_warning(soc, state):
+def check_ac_warning(
+    soc,
+    state
+):
 
     if not AC_WARNING_ENABLED:
+
         return
 
     # Only activate this warning after the battery
     # has actually reached 100%
+
     if not state["reached_100"]:
+
         return
 
-    # Battery has fallen below the configured AC threshold
+    # Battery has fallen below configured AC threshold
+
     if soc < AC_WARNING_BELOW:
 
         if not state["ac_warning_sent"]:
@@ -550,35 +840,49 @@ def check_ac_warning(soc, state):
             state["ac_warning_sent"] = True
 
 
-
-
 # ============================================================
 # SOLAR PRODUCTION DROP WARNING
 # ============================================================
 
-def check_production_drop(production, state):
+def check_production_drop(
+    production,
+    state
+):
 
     # First, wait until solar production has reached
     # the configured high-production trigger.
+
     if production >= PRODUCTION_TRIGGER:
 
-        state["production_trigger_reached"] = True
+        state[
+            "production_trigger_reached"
+        ] = True
 
         # Re-arm the warning for the next drop.
-        state["production_drop_alert_sent"] = False
+
+        state[
+            "production_drop_alert_sent"
+        ] = False
 
         return
 
     # Do nothing if production has never reached
     # the trigger level.
-    if not state["production_trigger_reached"]:
+
+    if not state[
+        "production_trigger_reached"
+    ]:
+
         return
 
     # Production has previously been high and has
-    # now fallen below the configured low level.
+    # now fallen below configured low level.
+
     if production < PRODUCTION_DROP_BELOW:
 
-        if not state["production_drop_alert_sent"]:
+        if not state[
+            "production_drop_alert_sent"
+        ]:
 
             send_notification(
                 PRODUCTION_DROP_MESSAGE
@@ -587,17 +891,24 @@ def check_production_drop(production, state):
                 "warning,partly_sunny"
             )
 
-            state["production_drop_alert_sent"] = True
-
+            state[
+                "production_drop_alert_sent"
+            ] = True
 
 
 # ============================================================
 # MAIN BATTERY CHECK
 # ============================================================
 
-def check_battery(soc, production, state):
+def check_battery(
+    soc,
+    production,
+    state
+):
 
-    print("Checking battery alerts...")
+    print(
+        "Checking battery alerts..."
+    )
 
     check_charging_alerts(
         soc,
@@ -631,9 +942,17 @@ def check_battery(soc, production, state):
 
 def main():
 
-    print("================================")
-    print("Starting Deye battery check...")
-    print("================================")
+    print(
+        "================================"
+    )
+
+    print(
+        "Starting Deye battery check..."
+    )
+
+    print(
+        "================================"
+    )
 
     state = load_state()
 
@@ -653,10 +972,19 @@ def main():
         state
     )
 
-    print("================================")
-    print("Check completed successfully.")
-    print("================================")
+    print(
+        "================================"
+    )
+
+    print(
+        "Check completed successfully."
+    )
+
+    print(
+        "================================"
+    )
 
 
 if __name__ == "__main__":
+
     main()
