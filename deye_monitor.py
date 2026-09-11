@@ -217,12 +217,16 @@ def get_access_token():
 
 def get_station_data(access_token):
 
-    url = f"{DEYE_BASE_URL}/station/latest"
-
     headers = {
         "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json"
     }
+
+    # ============================================================
+    # 1. Get station-level data
+    # ============================================================
+
+    url = f"{DEYE_BASE_URL}/station/latest"
 
     payload = {
         "stationId": STATION_ID
@@ -256,21 +260,134 @@ def get_station_data(access_token):
             f"Battery SOC not found in Deye response: {data}"
         )
 
-    if "generationPower" not in latest:
-        raise Exception(
-            f"Solar production not found in Deye response: {data}"
-        )
-
     soc = float(latest["batterySOC"])
+
     print("RAW Deye station data:")
     print(json.dumps(latest, indent=2))
-    production = float(latest["generationPower"])
-    
-    print(f"Battery SOC: {soc}%")
-    print(f"Solar production: {production} kW")
-    
-    return soc, production
 
+    print(f"Station generationPower: {latest.get('generationPower')} kW")
+
+    # ============================================================
+    # 2. Find the inverter/device belonging to this station
+    # ============================================================
+
+    device_url = f"{DEYE_BASE_URL}/station/device"
+
+    device_payload = {
+        "stationId": STATION_ID
+    }
+
+    device_response = requests.post(
+        device_url,
+        headers=headers,
+        json=device_payload,
+        timeout=30
+    )
+
+    device_response.raise_for_status()
+
+    device_data = device_response.json()
+
+    if not device_data.get("success"):
+        raise Exception(
+            f"Deye station device request failed: {device_data}"
+        )
+
+    devices = device_data.get("deviceListItems", [])
+
+    if not devices:
+        raise Exception(
+            f"No devices found for station {STATION_ID}: "
+            f"{device_data}"
+        )
+
+    print("Deye station devices:")
+    print(json.dumps(devices, indent=2))
+
+    device_sn = devices[0].get("deviceSn")
+
+    if not device_sn:
+        raise Exception(
+            f"Device serial number not found: {devices[0]}"
+        )
+
+    print(f"Using Deye device SN: {device_sn}")
+
+    # ============================================================
+    # 3. Get actual inverter telemetry
+    # ============================================================
+
+    device_url = f"{DEYE_BASE_URL}/device/latest"
+
+    device_payload = {
+        "deviceList": [device_sn]
+    }
+
+    device_response = requests.post(
+        device_url,
+        headers=headers,
+        json=device_payload,
+        timeout=30
+    )
+
+    device_response.raise_for_status()
+
+    device_latest = device_response.json()
+
+    if not device_latest.get("success"):
+        raise Exception(
+            f"Deye device request failed: {device_latest}"
+        )
+
+    print("RAW Deye device data:")
+    print(json.dumps(device_latest, indent=2))
+
+    device_data_list = device_latest.get("deviceDataList", [])
+
+    if not device_data_list:
+        raise Exception(
+            f"No device telemetry returned: {device_latest}"
+        )
+
+    data_list = device_data_list[0].get("dataList", [])
+
+    # Convert Deye telemetry into:
+    # {
+    #     "TotalSolarPower": value,
+    #     "SOC": value,
+    #     ...
+    # }
+    telemetry = {
+        item["key"]: item["value"]
+        for item in data_list
+        if item.get("key")
+    }
+
+    print("Deye inverter telemetry keys:")
+    print(json.dumps(telemetry, indent=2))
+
+    # ============================================================
+    # 4. Use inverter PV power instead of station generationPower
+    # ============================================================
+
+    if "TotalSolarPower" not in telemetry:
+        raise Exception(
+            "TotalSolarPower not found in Deye device telemetry. "
+            f"Available keys: {list(telemetry.keys())}"
+        )
+
+    production_watts = float(telemetry["TotalSolarPower"])
+
+    # Deye device telemetry reports solar power in watts.
+    # Convert W -> kW because the rest of this script uses kW.
+    production = production_watts / 1000.0
+
+    print(f"Battery SOC: {soc}%")
+    print(f"Station generationPower: {latest.get('generationPower')} kW")
+    print(f"Inverter TotalSolarPower: {production_watts} W")
+    print(f"Solar production used by alert: {production:.3f} kW")
+
+    return soc, production
 
 # ============================================================
 # NTFY
