@@ -1,11 +1,5 @@
 {
-  "low_30_sent": false,
-  "high_80_sent": false,
-  "high_90_sent": false,
-  "high_100_sent": false,
-  "full_100_sent": false,
   "reached_100": false,
-  "below_95_sent": false,
   "charging": {
     "80": true,
     "90": false,
