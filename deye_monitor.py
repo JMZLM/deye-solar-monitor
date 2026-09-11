@@ -20,13 +20,14 @@ STATION_ID = 62615671
 # 0.7 kW = 700 W
 #
 # Example:
-#   Production reaches 2.0 kW or higher
-#       ↓
-#   Alert becomes armed
-#       ↓
-#   Production later falls below 0.7 kW
-#       ↓
-#   Send notification
+#
+# Production reaches >= 2.0 kW
+#             ↓
+# Trigger is reached
+#             ↓
+# Production later falls below 0.7 kW
+#             ↓
+# Send notification
 
 PRODUCTION_TRIGGER = 2.0
 PRODUCTION_DROP_BELOW = 0.7
@@ -39,7 +40,6 @@ PRODUCTION_DROP_MESSAGE = (
 # ------------------------------------------------------------
 # CHARGING ALERTS
 # ------------------------------------------------------------
-# Alert when battery reaches/passes these levels while charging.
 
 CHARGING_ALERTS = {
     80: "Battery passed 80%",
@@ -50,7 +50,6 @@ CHARGING_ALERTS = {
 # ------------------------------------------------------------
 # DISCHARGING ALERTS
 # ------------------------------------------------------------
-# Alert when battery drops BELOW these levels.
 
 DISCHARGING_ALERTS = {
     95: "Battery dropped below 95%",
@@ -102,6 +101,7 @@ DEYE_EMAIL = os.environ["DEYE_EMAIL"]
 DEYE_PASSWORD = os.environ["DEYE_PASSWORD"]
 NTFY_TOPIC = os.environ["NTFY_TOPIC"]
 
+
 # ============================================================
 # STATE MANAGEMENT
 # ============================================================
@@ -119,9 +119,11 @@ def create_default_state():
     }
 
     for threshold in CHARGING_ALERTS:
+
         state["charging"][str(threshold)] = False
 
     for threshold in DISCHARGING_ALERTS:
+
         state["discharging"][str(threshold)] = False
 
     return state
@@ -130,11 +132,13 @@ def create_default_state():
 def load_state():
 
     if not os.path.exists(STATE_FILE):
+
         return create_default_state()
 
     try:
 
         with open(STATE_FILE, "r") as f:
+
             state = json.load(f)
 
     except Exception:
@@ -183,7 +187,7 @@ def load_state():
         False
     )
 
-    # Add newly configured charging thresholds automatically
+    # Add newly configured charging thresholds
 
     for threshold in CHARGING_ALERTS:
 
@@ -192,7 +196,7 @@ def load_state():
             False
         )
 
-    # Add newly configured discharging thresholds automatically
+    # Add newly configured discharging thresholds
 
     for threshold in DISCHARGING_ALERTS:
 
@@ -214,8 +218,9 @@ def save_state(state):
             indent=2
         )
 
+
 # ============================================================
-# DEYE API
+# DEYE API — AUTHENTICATION
 # ============================================================
 
 def get_access_token():
@@ -224,7 +229,9 @@ def get_access_token():
         DEYE_PASSWORD.encode("utf-8")
     ).hexdigest()
 
-    url = f"{DEYE_BASE_URL}/account/token"
+    url = (
+        f"{DEYE_BASE_URL}/account/token"
+    )
 
     payload = {
         "appSecret": DEYE_APP_SECRET,
@@ -234,7 +241,9 @@ def get_access_token():
 
     response = requests.post(
         url,
-        params={"appId": DEYE_APP_ID},
+        params={
+            "appId": DEYE_APP_ID
+        },
         json=payload,
         timeout=30
     )
@@ -259,7 +268,9 @@ def get_access_token():
 def get_station_data(access_token):
 
     headers = {
-        "Authorization": f"Bearer {access_token}",
+        "Authorization": (
+            f"Bearer {access_token}"
+        ),
         "Content-Type": "application/json"
     }
 
@@ -284,7 +295,9 @@ def get_station_data(access_token):
 
     station_response.raise_for_status()
 
-    station_result = station_response.json()
+    station_result = (
+        station_response.json()
+    )
 
     if not station_result.get("success"):
 
@@ -312,6 +325,10 @@ def get_station_data(access_token):
             f"{station_result}"
         )
 
+    soc = float(
+        latest["batterySOC"]
+    )
+
     print(
         "RAW Deye station data:"
     )
@@ -323,20 +340,11 @@ def get_station_data(access_token):
         )
     )
 
-    soc = float(
-        latest["batterySOC"]
-    )
-
-    # IMPORTANT:
+    # This value is intentionally printed for comparison.
     #
-    # We deliberately DO NOT use:
-    #
-    # latest["generationPower"]
-    #
-    # because your station endpoint is currently
-    # reporting 4.0 kW even when the Deye app shows
-    # approximately 2 W.
-    #
+    # DO NOT use it for the production alert because your
+    # station endpoint was reporting 4.0 kW while the inverter
+    # was actually producing only a few watts.
 
     print(
         f"Station generationPower: "
@@ -402,7 +410,7 @@ def get_station_data(access_token):
     )
 
     # ========================================================
-    # 3. FIND ALL INVERTERS
+    # 3. FIND INVERTER DEVICES
     # ========================================================
 
     inverter_devices = [
@@ -496,15 +504,6 @@ def get_station_data(access_token):
         )
     )
 
-    print(
-        "Number of device telemetry results: "
-        f"{len(device_data_list)}"
-    )
-
-    # ========================================================
-    # 5. STOP IF DEYE RETURNS NO TELEMETRY
-    # ========================================================
-
     if not device_data_list:
 
         raise Exception(
@@ -514,118 +513,65 @@ def get_station_data(access_token):
         )
 
     # ========================================================
-    # 6. PRINT ALL INVERTER TELEMETRY
+    # 5. READ INVERTER TELEMETRY
     # ========================================================
 
-    all_telemetry = {}
+    total_generation_watts = 0.0
+
+    found_total_gen_power = False
 
     for device_result in device_data_list:
-
-        device_sn = device_result.get(
-            "deviceSn"
-        )
-
-        device_type = device_result.get(
-            "deviceType"
-        )
 
         data_list = device_result.get(
             "dataList",
             []
         )
 
-        print(
-            "--------------------------------"
-        )
+        telemetry = {
+            item["key"]: item.get("value")
+            for item in data_list
+            if item.get("key")
+        }
 
         print(
-            f"Device: {device_sn}"
-        )
-
-        print(
-            f"Device type: {device_type}"
-        )
-
-        print(
-            "Telemetry:"
+            "Deye inverter telemetry:"
         )
 
         print(
             json.dumps(
-                data_list,
+                telemetry,
                 indent=2
             )
         )
 
-        # Convert key/value telemetry into a dictionary
+        # ----------------------------------------------------
+        # THIS IS THE IMPORTANT VALUE
+        #
+        # TotalGenPower = instantaneous generator/PV output
+        # reported in W.
+        # ----------------------------------------------------
 
-        telemetry = {}
+        if "TotalGenPower" in telemetry:
 
-        for item in data_list:
+            total_generation_watts += float(
+                telemetry["TotalGenPower"]
+            )
 
-            key = item.get("key")
+            found_total_gen_power = True
 
-            if key:
+    if not found_total_gen_power:
 
-                telemetry[key] = item.get(
-                    "value"
-                )
-
-        all_telemetry[device_sn] = telemetry
-
-    print(
-        "================================"
-    )
-
-    print(
-        "Deye inverter telemetry keys:"
-    )
-
-    print(
-        json.dumps(
-            all_telemetry,
-            indent=2
+        raise Exception(
+            "TotalGenPower was not found in Deye "
+            "inverter telemetry."
         )
-    )
 
     # ========================================================
-    # IMPORTANT:
-    #
-    # DO NOT ASSUME TotalSolarPower YET.
-    #
-    # We are first checking exactly what your inverter
-    # returns.
+    # 6. CONVERT WATTS TO KW
     # ========================================================
 
-    print(
-        "================================"
-    )
-
-    print(
-        "Inverter telemetry successfully received."
-    )
-
-    print(
-        "Solar production value will NOT yet be "
-        "taken from station generationPower."
-    )
-
-    print(
-        "The telemetry above will show the correct "
-        "PV power field for your inverter."
-    )
-
-    # ========================================================
-    # TEMPORARY:
-    #
-    # Keep the existing station value ONLY so the script
-    # can complete while we inspect the device telemetry.
-    #
-    # DO NOT use this as the final production source.
-    # ========================================================
-
-    station_production = float(
-        latest["generationPower"]
+    production = (
+        total_generation_watts / 1000.0
     )
 
     print(
@@ -634,15 +580,20 @@ def get_station_data(access_token):
 
     print(
         f"Station generationPower: "
-        f"{station_production} kW"
+        f"{latest.get('generationPower')} kW"
     )
 
     print(
-        "WARNING: Production alert is currently "
-        "using station generationPower temporarily."
+        f"Inverter TotalGenPower: "
+        f"{total_generation_watts} W"
     )
 
-    return soc, station_production
+    print(
+        f"Solar production used by alert: "
+        f"{production:.3f} kW"
+    )
+
+    return soc, production
 
 
 # ============================================================
@@ -849,8 +800,11 @@ def check_production_drop(
     state
 ):
 
-    # First, wait until solar production has reached
-    # the configured high-production trigger.
+    # --------------------------------------------------------
+    # STEP 1:
+    # Production reaches the high trigger.
+    # This ARMS the drop alert.
+    # --------------------------------------------------------
 
     if production >= PRODUCTION_TRIGGER:
 
@@ -858,25 +812,40 @@ def check_production_drop(
             "production_trigger_reached"
         ] = True
 
-        # Re-arm the warning for the next drop.
+        # Allow a future drop notification
 
         state[
             "production_drop_alert_sent"
         ] = False
 
+        print(
+            f"Production trigger reached: "
+            f"{production:.3f} kW"
+        )
+
         return
 
-    # Do nothing if production has never reached
-    # the trigger level.
+    # --------------------------------------------------------
+    # STEP 2:
+    # Don't alert if production has never reached
+    # the high trigger.
+    # --------------------------------------------------------
 
     if not state[
         "production_trigger_reached"
     ]:
 
+        print(
+            "Production trigger has not been reached yet."
+        )
+
         return
 
-    # Production has previously been high and has
-    # now fallen below configured low level.
+    # --------------------------------------------------------
+    # STEP 3:
+    # Production was previously high and has now
+    # dropped below the low threshold.
+    # --------------------------------------------------------
 
     if production < PRODUCTION_DROP_BELOW:
 
@@ -894,6 +863,19 @@ def check_production_drop(
             state[
                 "production_drop_alert_sent"
             ] = True
+
+            print(
+                f"Production drop alert sent: "
+                f"{production:.3f} kW"
+            )
+
+    else:
+
+        print(
+            f"Production is below trigger but "
+            f"not low enough for drop alert: "
+            f"{production:.3f} kW"
+        )
 
 
 # ============================================================
