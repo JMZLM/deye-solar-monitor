@@ -262,7 +262,9 @@ def get_station_data(access_token):
         )
 
     soc = float(latest["batterySOC"])
-    production = float(latest["generationPower"])
+    print("RAW Deye station data:")
+	print(json.dumps(latest, indent=2))
+	production = float(latest["generationPower"])
     
     print(f"Battery SOC: {soc}%")
     print(f"Solar production: {production} kW")
