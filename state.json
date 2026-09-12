@@ -7,7 +7,7 @@
   },
   "discharging": {
     "80": true,
-    "60": true,
+    "60": false,
     "40": false,
     "31": false,
     "95": true
