@@ -4,7 +4,7 @@
     "80": false,
     "90": false,
     "99": false,
-    "75": false
+    "75": true
   },
   "discharging": {
     "80": true,
