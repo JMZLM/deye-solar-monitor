@@ -44,6 +44,7 @@ PRODUCTION_DROP_MESSAGE = (
 CHARGING_ALERTS = {
     75: "Battery passed 75%",
     80: "Battery passed 80%",
+    85: "Battery passed 85%",
     90: "Battery passed 90%",
     99: "Battery nearly full"
 }
