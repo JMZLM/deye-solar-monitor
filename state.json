@@ -3,7 +3,8 @@
   "charging": {
     "80": false,
     "90": false,
-    "99": false
+    "99": false,
+    "75": false
   },
   "discharging": {
     "80": true,
