@@ -2,9 +2,10 @@
   "reached_100": false,
   "charging": {
     "80": true,
-    "90": false,
+    "90": true,
     "99": false,
-    "75": true
+    "75": true,
+    "85": true
   },
   "discharging": {
     "80": false,
