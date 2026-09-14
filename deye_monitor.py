@@ -804,6 +804,14 @@ def check_production_drop(
             state[
                 "production_drop_alert_sent"
             ] = True
+            
+            # The high-production cycle is now complete.
+            # Wait for production to reach the trigger again
+            # before allowing another alert.
+            
+            state[
+                "production_trigger_reached"
+            ] = False
 
             print(
                 f"Production drop alert sent: "
