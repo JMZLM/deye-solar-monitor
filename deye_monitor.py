@@ -454,67 +454,25 @@ def get_station_data(access_token):
         )
 
     # ========================================================
-    # 5. READ INVERTER TELEMETRY
+    # 5. GET SOLAR PRODUCTION
     # ========================================================
-
-    total_generation_watts = 0.0
-
-    found_total_gen_power = False
-
-    for device_result in device_data_list:
-
-        data_list = device_result.get(
-            "dataList",
-            []
-        )
-
-        telemetry = {
-            item["key"]: item.get("value")
-            for item in data_list
-            if item.get("key")
-        }
-
-        print(
-            "Deye inverter telemetry:"
-        )
-
-        print(
-            json.dumps(
-                telemetry,
-                indent=2
-            )
-        )
-
-        # ----------------------------------------------------
-        # THIS IS THE IMPORTANT VALUE
-        #
-        # TotalGenPower = instantaneous generator/PV output
-        # reported in W.
-        # ----------------------------------------------------
-
-        if "TotalGenPower" in telemetry:
-
-            total_generation_watts += float(
-                telemetry["TotalGenPower"]
-            )
-
-            found_total_gen_power = True
-
-    if not found_total_gen_power:
-
-        raise Exception(
-            "TotalGenPower was not found in Deye "
-            "inverter telemetry."
-        )
-
-    # ========================================================
-    # 6. CONVERT WATTS TO KW
-    # ========================================================
-
-    production = (
-        total_generation_watts / 1000.0
+    
+    # Deye station/latest reports generationPower in watts.
+    # Convert watts to kW for the production alert.
+    
+    generation_power_watts = float(
+        latest["generationPower"]
     )
-
+    
+    production = (
+        generation_power_watts / 1000.0
+    )
+    
+    print(
+        f"Solar production from station: "
+        f"{production:.3f} kW"
+    )
+    
     print(
         f"Battery SOC: {soc}%"
     )
