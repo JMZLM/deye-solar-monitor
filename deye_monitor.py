@@ -483,11 +483,6 @@ def get_station_data(access_token):
     )
 
     print(
-        f"Inverter TotalGenPower: "
-        f"{total_generation_watts} W"
-    )
-
-    print(
         f"Solar production used by alert: "
         f"{production:.3f} kW"
     )
