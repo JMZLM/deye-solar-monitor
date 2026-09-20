@@ -16,6 +16,6 @@
   },
   "full_battery_sent": false,
   "ac_warning_sent": true,
-  "production_trigger_reached": false,
-  "production_drop_alert_sent": true
+  "production_trigger_reached": true,
+  "production_drop_alert_sent": false
 }
