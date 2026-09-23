@@ -7,7 +7,7 @@
     "99": false
   },
   "discharging": {
-    "95": false,
+    "95": true,
     "80": false,
     "60": false,
     "40": false,
@@ -15,7 +15,7 @@
   },
   "full_battery_sent": false,
   "reached_100": true,
-  "ac_warning_sent": false,
+  "ac_warning_sent": true,
   "production_trigger_reached": false,
   "production_drop_alert_sent": true,
   "ac_load_trigger_reached": true,
