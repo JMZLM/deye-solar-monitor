@@ -141,7 +141,9 @@ def create_default_state():
         "reached_100": False,
         "ac_warning_sent": False,
         "production_trigger_reached": False,
-        "production_drop_alert_sent": False
+        "production_drop_alert_sent": False,
+        "ac_load_trigger_reached": False,
+        "ac_load_alert_sent": False
     }
 
     for threshold in CHARGING_ALERTS:
@@ -174,7 +176,8 @@ def load_state():
     state.setdefault("ac_warning_sent",False)
     state.setdefault("production_trigger_reached",False)
     state.setdefault("production_drop_alert_sent",False)
-
+    state.setdefault("production_trigger_reached",False)
+    state.setdefault("production_drop_alert_sent",False)
     # Add newly configured charging thresholds
 
     for threshold in CHARGING_ALERTS:
@@ -817,12 +820,83 @@ def check_production_drop(
 
 
 # ============================================================
+# HIGH LOAD / AC DETECTION
+# ============================================================
+
+def check_ac_load(
+    consumption,
+    state
+):
+
+    # --------------------------------------------------------
+    # STEP 1:
+    # Load goes above the AC trigger.
+    # --------------------------------------------------------
+
+    if consumption > AC_LOAD_TRIGGER:
+
+        state[
+            "ac_load_trigger_reached"
+        ] = True
+
+        # Send only one notification while
+        # the load remains above the trigger.
+
+        if not state[
+            "ac_load_alert_sent"
+        ]:
+
+            send_notification(
+                AC_LOAD_MESSAGE
+                + f" Current load: {consumption:.2f} kW.",
+                WARNING_PRIORITY,
+                "warning,partly_sunny"
+            )
+
+            state[
+                "ac_load_alert_sent"
+            ] = True
+
+            print(
+                f"High load detected: "
+                f"{consumption:.3f} kW"
+            )
+
+        return
+
+    # --------------------------------------------------------
+    # STEP 2:
+    # Load is back at or below 1.2 kW.
+    # Re-arm the alert.
+    # --------------------------------------------------------
+
+    if consumption <= AC_LOAD_TRIGGER:
+
+        if state[
+            "ac_load_trigger_reached"
+        ]:
+
+            print(
+                f"High load trigger reset: "
+                f"{consumption:.3f} kW"
+            )
+
+        state[
+            "ac_load_trigger_reached"
+        ] = False
+
+        state[
+            "ac_load_alert_sent"
+        ] = False
+
+# ============================================================
 # MAIN BATTERY CHECK
 # ============================================================
 
 def check_battery(
     soc,
     production,
+    consumption,
     state
 ):
 
@@ -854,6 +928,11 @@ def check_battery(
         production,
         state
     )
+    
+    check_ac_load(
+        consumption,
+        state
+    )
 
 
 # ============================================================
@@ -877,6 +956,7 @@ def main():
     check_battery(
         soc,
         production,
+        consumption,
         state
     )
 
