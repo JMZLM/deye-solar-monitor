@@ -1,23 +1,23 @@
 {
-  "reached_100": true,
   "charging": {
+    "75": true,
     "80": false,
+    "85": false,
     "90": false,
-    "99": false,
-    "75": false,
-    "85": false
+    "99": false
   },
   "discharging": {
+    "95": true,
     "80": true,
     "60": false,
     "40": false,
-    "31": false,
-    "95": true
+    "31": false
   },
   "full_battery_sent": false,
-  "ac_warning_sent": true,
-  "production_trigger_reached": true,
-  "production_drop_alert_sent": false
+  "reached_100": false,
+  "ac_warning_sent": false,
+  "production_trigger_reached": false,
+  "production_drop_alert_sent": false,
   "ac_load_trigger_reached": false,
   "ac_load_alert_sent": false
 }
