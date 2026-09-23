@@ -37,6 +37,24 @@ PRODUCTION_DROP_MESSAGE = (
     "possible heavy cloud/rain."
 )
 
+
+# ------------------------------------------------------------
+# HIGH LOAD / AC DETECTION
+# ------------------------------------------------------------
+
+# Alert when household load goes above this level.
+AC_LOAD_TRIGGER = 1.2
+
+AC_LOAD_MESSAGE = (
+    "High load detected — "
+    "possible AC turned on."
+)
+
+
+
+
+
+
 # ------------------------------------------------------------
 # CHARGING ALERTS
 # ------------------------------------------------------------
@@ -468,6 +486,17 @@ def get_station_data(access_token):
         generation_power_watts / 1000.0
     )
     
+    consumption_power_watts = float(
+    latest["consumptionPower"]
+    )
+    
+    consumption = (
+    consumption_power_watts / 1000.0
+    )
+    
+
+
+    
     print(
         f"Solar production from station: "
         f"{production:.3f} kW"
@@ -486,8 +515,15 @@ def get_station_data(access_token):
         f"Solar production used by alert: "
         f"{production:.3f} kW"
     )
+    
+    print(
+        f"Current load: "
+        f"{consumption:.3f} kW"
+    )
+    
+    
 
-    return soc, production
+    return soc, production, consumption
 
 
 # ============================================================
@@ -834,7 +870,7 @@ def main():
 
     access_token = get_access_token()
 
-    soc, production = get_station_data(
+    soc, production, consumption = get_station_data(
         access_token
     )
 
