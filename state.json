@@ -18,6 +18,6 @@
   "ac_warning_sent": true,
   "production_trigger_reached": false,
   "production_drop_alert_sent": true,
-  "ac_load_trigger_reached": false,
-  "ac_load_alert_sent": false
+  "ac_load_trigger_reached": true,
+  "ac_load_alert_sent": true
 }
