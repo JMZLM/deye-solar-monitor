@@ -43,7 +43,7 @@ PRODUCTION_DROP_MESSAGE = (
 # ------------------------------------------------------------
 
 # Alert when household load goes above this level.
-AC_LOAD_TRIGGER = 1.2
+AC_LOAD_TRIGGER = 1.4
 
 AC_LOAD_MESSAGE = (
     "High load detected — "
