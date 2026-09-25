@@ -3,7 +3,7 @@
     "75": true,
     "80": true,
     "85": true,
-    "90": false,
+    "90": true,
     "99": false
   },
   "discharging": {
@@ -18,6 +18,6 @@
   "ac_warning_sent": true,
   "production_trigger_reached": true,
   "production_drop_alert_sent": false,
-  "ac_load_trigger_reached": false,
-  "ac_load_alert_sent": false
+  "ac_load_trigger_reached": true,
+  "ac_load_alert_sent": true
 }
