@@ -76,7 +76,7 @@ DISCHARGING_ALERTS = {
     80: "Battery dropped below 80%",
     60: "Battery dropped below 60%",
     40: "Battery dropped below 40%",
-    31: "CRITICAL: Battery is very low"
+    20: "CRITICAL: Battery is very low"
 }
 
 # ------------------------------------------------------------
