@@ -535,8 +535,7 @@ def get_station_data(access_token):
 
 def send_notification(
     message,
-    priority=NORMAL_PRIORITY,
-    tags="battery"
+    priority=NORMAL_PRIORITY
 ):
 
     url = (
@@ -545,8 +544,7 @@ def send_notification(
 
     headers = {
         "Title": "Deye Battery",
-        "Priority": priority,
-        "Tags": tags
+        "Priority": priority
     }
 
     response = requests.post(
@@ -587,8 +585,7 @@ def check_charging_alerts(
                 send_notification(
                     f"{message} — "
                     f"now at {soc:.0f}%",
-                    NORMAL_PRIORITY,
-                    "battery,arrow_up"
+                    NORMAL_PRIORITY
                 )
 
                 state["charging"][state_key] = True
@@ -627,18 +624,15 @@ def check_discharging_alerts(
                 if threshold <= 31:
 
                     priority = WARNING_PRIORITY
-                    tags = "warning,battery"
 
                 else:
 
                     priority = NORMAL_PRIORITY
-                    tags = "battery,arrow_down"
 
                 send_notification(
                     f"{message} — "
                     f"now at {soc:.0f}%",
-                    priority,
-                    tags
+                    priority
                 )
 
                 state["discharging"][state_key] = True
@@ -674,8 +668,7 @@ def check_full_battery(
             send_notification(
                 f"Battery fully charged — "
                 f"{FULL_BATTERY}%",
-                WARNING_PRIORITY,
-                "battery,white_check_mark"
+                WARNING_PRIORITY
             )
 
             state["full_battery_sent"] = True
@@ -717,8 +710,7 @@ def check_ac_warning(
             send_notification(
                 AC_WARNING_MESSAGE
                 + f" Now at {soc:.0f}%.",
-                WARNING_PRIORITY,
-                "warning,battery"
+                WARNING_PRIORITY
             )
 
             state["ac_warning_sent"] = True
@@ -789,8 +781,7 @@ def check_production_drop(
             send_notification(
                 PRODUCTION_DROP_MESSAGE
                 + f" Now at {production:.2f} kW.",
-                WARNING_PRIORITY,
-                "warning,partly_sunny"
+                WARNING_PRIORITY
             )
 
             state[
@@ -849,8 +840,7 @@ def check_ac_load(
             send_notification(
                 AC_LOAD_MESSAGE
                 + f" Current load: {consumption:.2f} kW.",
-                WARNING_PRIORITY,
-                "warning,partly_sunny"
+                WARNING_PRIORITY
             )
 
             state[
