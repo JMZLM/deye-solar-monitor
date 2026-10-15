@@ -3,7 +3,7 @@
     "75": true,
     "80": true,
     "85": true,
-    "90": false,
+    "90": true,
     "99": false
   },
   "discharging": {
