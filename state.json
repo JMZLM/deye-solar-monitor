@@ -1,6 +1,6 @@
 {
   "charging": {
-    "75": false,
+    "75": true,
     "80": false,
     "85": false,
     "90": false,
