@@ -11,7 +11,7 @@
     "80": true,
     "60": true,
     "40": true,
-    "20": false
+    "20": true
   },
   "full_battery_sent": false,
   "reached_100": false,
